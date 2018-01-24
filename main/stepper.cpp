@@ -76,7 +76,60 @@
  */
 
 //#include "Arduino.h"
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <time.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/queue.h"
+#include "driver/gpio.h"
 #include "stepper.h"
+
+static uint32_t HIGH = 1;
+static uint32_t LOW = 0;
+
+gpio_num_t mapFromInt(int integerPin)
+{
+	switch ( integerPin )
+	{
+		case 0: return GPIO_NUM_0;
+		case 1: return GPIO_NUM_1;
+		case 2: return GPIO_NUM_2;
+		case 3: return GPIO_NUM_3;
+		case 4: return GPIO_NUM_4;
+		case 5: return GPIO_NUM_5;
+		case 6: return GPIO_NUM_6;
+		case 7: return GPIO_NUM_7;
+		case 8: return GPIO_NUM_8;
+		case 9: return GPIO_NUM_9;
+		case 10: return GPIO_NUM_10;
+		case 11: return GPIO_NUM_11;
+		case 12: return GPIO_NUM_12;
+		case 13: return GPIO_NUM_13;
+		case 14: return GPIO_NUM_14;
+		case 15: return GPIO_NUM_15;
+		case 16: return GPIO_NUM_16;
+		case 17: return GPIO_NUM_17;
+		case 18: return GPIO_NUM_18;
+		case 19: return GPIO_NUM_19;
+		case 21: return GPIO_NUM_21;
+		case 22: return GPIO_NUM_22;
+		case 23: return GPIO_NUM_23;
+		case 25: return GPIO_NUM_25;
+		case 26: return GPIO_NUM_26;
+		case 27: return GPIO_NUM_27;
+		case 32: return GPIO_NUM_32;
+		case 33: return GPIO_NUM_33;
+		case 34: return GPIO_NUM_34;
+		case 35: return GPIO_NUM_35;
+		case 36: return GPIO_NUM_36;
+		case 37: return GPIO_NUM_37;
+		case 38: return GPIO_NUM_38;
+		case 39: return GPIO_NUM_39;
+		default: return GPIO_NUM_MAX;
+	}
+}
 
 /*
  * two-wire constructor.
@@ -84,26 +137,37 @@
  */
 Stepper::Stepper(int number_of_steps, int motor_pin_1, int motor_pin_2)
 {
-  this->step_number = 0;    // which step the motor is on
-  this->direction = 0;      // motor direction
-  this->last_step_time = 0; // time stamp in us of the last step taken
-  this->number_of_steps = number_of_steps; // total number of steps for this motor
+	this->step_number = 0;    // which step the motor is on
+	this->direction = 0;      // motor direction
+	this->last_step_time = 0; // time stamp in us of the last step taken
+	this->number_of_steps = number_of_steps; // total number of steps for this motor
 
-  // Arduino pins for the motor control connection:
-  this->motor_pin_1 = motor_pin_1;
-  this->motor_pin_2 = motor_pin_2;
+	// Arduino pins for the motor control connection:
+	this->motor_pin_1 = mapFromInt(motor_pin_1);
+	this->motor_pin_2 = mapFromInt(motor_pin_2);
 
-  // setup the pins on the microcontroller:
-  pinMode(this->motor_pin_1, OUTPUT);
-  pinMode(this->motor_pin_2, OUTPUT);
+	// setup the pins on the microcontroller:
+	gpio_config_t io_conf;
+	//disable interrupt
+	io_conf.intr_type = GPIO_INTR_DISABLE;
+	//set as output mode
+	io_conf.mode = GPIO_MODE_OUTPUT;
+	//bit mask of the pins that you want to set,e.g.GPIO18/19
+	io_conf.pin_bit_mask = ((1ULL<<motor_pin_1) | (1ULL<<motor_pin_2));
+	//disable pull-down mode
+	io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
+	//disable pull-up mode
+	io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
+	//configure GPIO with the given settings
+	gpio_config(&io_conf);
 
-  // When there are only 2 pins, set the others to 0:
-  this->motor_pin_3 = 0;
-  this->motor_pin_4 = 0;
-  this->motor_pin_5 = 0;
+	// When there are only 2 pins, set the others to Max but I don't know why:
+	this->motor_pin_3 = GPIO_NUM_MAX;
+	this->motor_pin_4 = GPIO_NUM_MAX;
+	this->motor_pin_5 = GPIO_NUM_MAX;
 
-  // pin_count is used by the stepMotor() method:
-  this->pin_count = 2;
+	// pin_count is used by the stepMotor() method:
+	this->pin_count = 2;
 }
 
 
@@ -114,28 +178,37 @@ Stepper::Stepper(int number_of_steps, int motor_pin_1, int motor_pin_2)
 Stepper::Stepper(int number_of_steps, int motor_pin_1, int motor_pin_2,
                                       int motor_pin_3, int motor_pin_4)
 {
-  this->step_number = 0;    // which step the motor is on
-  this->direction = 0;      // motor direction
-  this->last_step_time = 0; // time stamp in us of the last step taken
-  this->number_of_steps = number_of_steps; // total number of steps for this motor
+	this->step_number = 0;    // which step the motor is on
+	this->direction = 0;      // motor direction
+	this->last_step_time = 0; // time stamp in us of the last step taken
+	this->number_of_steps = number_of_steps; // total number of steps for this motor
 
-  // Arduino pins for the motor control connection:
-  this->motor_pin_1 = motor_pin_1;
-  this->motor_pin_2 = motor_pin_2;
-  this->motor_pin_3 = motor_pin_3;
-  this->motor_pin_4 = motor_pin_4;
+	// Arduino pins for the motor control connection:
+	this->motor_pin_1 = mapFromInt(motor_pin_1);
+	this->motor_pin_2 = mapFromInt(motor_pin_2);
+	this->motor_pin_3 = mapFromInt(motor_pin_3);
+	this->motor_pin_4 = mapFromInt(motor_pin_4);
 
-  // setup the pins on the microcontroller:
-  pinMode(this->motor_pin_1, OUTPUT);
-  pinMode(this->motor_pin_2, OUTPUT);
-  pinMode(this->motor_pin_3, OUTPUT);
-  pinMode(this->motor_pin_4, OUTPUT);
+	// setup the pins on the microcontroller:
+	gpio_config_t io_conf;
+	//disable interrupt
+	io_conf.intr_type = GPIO_INTR_DISABLE;
+	//set as output mode
+	io_conf.mode = GPIO_MODE_OUTPUT;
+	//bit mask of the pins that you want to set,e.g.GPIO18/19
+	io_conf.pin_bit_mask = ((1ULL<<motor_pin_1) | (1ULL<<motor_pin_2) | (1ULL<<motor_pin_3) | (1ULL<<motor_pin_4));
+	//disable pull-down mode
+	io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
+	//disable pull-up mode
+	io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
+	//configure GPIO with the given settings
+	gpio_config(&io_conf);
 
-  // When there are 4 pins, set the others to 0:
-  this->motor_pin_5 = 0;
+//	// When there are 4 pins, set the others to 0:
+	this->motor_pin_5 = GPIO_NUM_MAX;
 
-  // pin_count is used by the stepMotor() method:
-  this->pin_count = 4;
+	// pin_count is used by the stepMotor() method:
+	this->pin_count = 4;
 }
 
 /*
@@ -146,27 +219,46 @@ Stepper::Stepper(int number_of_steps, int motor_pin_1, int motor_pin_2,
                                       int motor_pin_3, int motor_pin_4,
                                       int motor_pin_5)
 {
-  this->step_number = 0;    // which step the motor is on
-  this->direction = 0;      // motor direction
-  this->last_step_time = 0; // time stamp in us of the last step taken
-  this->number_of_steps = number_of_steps; // total number of steps for this motor
+	this->step_number = 0;    // which step the motor is on
+	this->direction = 0;      // motor direction
+	this->last_step_time = 0; // time stamp in us of the last step taken
+	this->number_of_steps = number_of_steps; // total number of steps for this motor
 
-  // Arduino pins for the motor control connection:
-  this->motor_pin_1 = motor_pin_1;
-  this->motor_pin_2 = motor_pin_2;
-  this->motor_pin_3 = motor_pin_3;
-  this->motor_pin_4 = motor_pin_4;
-  this->motor_pin_5 = motor_pin_5;
+	// Arduino pins for the motor control connection:
+	this->motor_pin_1 = mapFromInt(motor_pin_1);
+	this->motor_pin_2 = mapFromInt(motor_pin_2);
+	this->motor_pin_3 = mapFromInt(motor_pin_3);
+	this->motor_pin_4 = mapFromInt(motor_pin_4);
+	this->motor_pin_5 = mapFromInt(motor_pin_5);
 
-  // setup the pins on the microcontroller:
-  pinMode(this->motor_pin_1, OUTPUT);
-  pinMode(this->motor_pin_2, OUTPUT);
-  pinMode(this->motor_pin_3, OUTPUT);
-  pinMode(this->motor_pin_4, OUTPUT);
-  pinMode(this->motor_pin_5, OUTPUT);
+	// setup the pins on the microcontroller:
+	gpio_config_t io_conf;
+	//disable interrupt
+	io_conf.intr_type = GPIO_INTR_DISABLE;
+	//set as output mode
+	io_conf.mode = GPIO_MODE_OUTPUT;
+	//bit mask of the pins that you want to set,e.g.GPIO18/19
+	io_conf.pin_bit_mask = ((1ULL<<motor_pin_1) | (1ULL<<motor_pin_2) | (1ULL<<motor_pin_3) | (1ULL<<motor_pin_4) | (1ULL<<motor_pin_5));
+	//disable pull-down mode
+	io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
+	//disable pull-up mode
+	io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
+	//configure GPIO with the given settings
+	gpio_config(&io_conf);
 
-  // pin_count is used by the stepMotor() method:
-  this->pin_count = 5;
+	// pin_count is used by the stepMotor() method:
+	this->pin_count = 5;
+}
+
+/**
+ * Returns the current time in microseconds.
+ */
+long micros(){
+	clock_t elapsedClocks = clock();
+	//1 elapsed clocks
+	//1000 clocks per second. this would mean one clock every millisecond
+	long time = (elapsedClocks/CLOCKS_PER_SEC) * 1000000;
+	return time;
 }
 
 /*
@@ -234,48 +326,48 @@ void Stepper::stepMotor(int thisStep)
   if (this->pin_count == 2) {
     switch (thisStep) {
       case 0:  // 01
-        digitalWrite(motor_pin_1, LOW);
-        digitalWrite(motor_pin_2, HIGH);
+        gpio_set_level(motor_pin_1, LOW);
+        gpio_set_level(motor_pin_2, HIGH);
       break;
       case 1:  // 11
-        digitalWrite(motor_pin_1, HIGH);
-        digitalWrite(motor_pin_2, HIGH);
+        gpio_set_level(motor_pin_1, HIGH);
+        gpio_set_level(motor_pin_2, HIGH);
       break;
       case 2:  // 10
-        digitalWrite(motor_pin_1, HIGH);
-        digitalWrite(motor_pin_2, LOW);
+        gpio_set_level(motor_pin_1, HIGH);
+        gpio_set_level(motor_pin_2, LOW);
       break;
       case 3:  // 00
-        digitalWrite(motor_pin_1, LOW);
-        digitalWrite(motor_pin_2, LOW);
+        gpio_set_level(motor_pin_1, LOW);
+        gpio_set_level(motor_pin_2, LOW);
       break;
     }
   }
   if (this->pin_count == 4) {
     switch (thisStep) {
       case 0:  // 1010
-        digitalWrite(motor_pin_1, HIGH);
-        digitalWrite(motor_pin_2, LOW);
-        digitalWrite(motor_pin_3, HIGH);
-        digitalWrite(motor_pin_4, LOW);
+        gpio_set_level(motor_pin_1, HIGH);
+        gpio_set_level(motor_pin_2, LOW);
+        gpio_set_level(motor_pin_3, HIGH);
+        gpio_set_level(motor_pin_4, LOW);
       break;
       case 1:  // 0110
-        digitalWrite(motor_pin_1, LOW);
-        digitalWrite(motor_pin_2, HIGH);
-        digitalWrite(motor_pin_3, HIGH);
-        digitalWrite(motor_pin_4, LOW);
+        gpio_set_level(motor_pin_1, LOW);
+        gpio_set_level(motor_pin_2, HIGH);
+        gpio_set_level(motor_pin_3, HIGH);
+        gpio_set_level(motor_pin_4, LOW);
       break;
       case 2:  //0101
-        digitalWrite(motor_pin_1, LOW);
-        digitalWrite(motor_pin_2, HIGH);
-        digitalWrite(motor_pin_3, LOW);
-        digitalWrite(motor_pin_4, HIGH);
+        gpio_set_level(motor_pin_1, LOW);
+        gpio_set_level(motor_pin_2, HIGH);
+        gpio_set_level(motor_pin_3, LOW);
+        gpio_set_level(motor_pin_4, HIGH);
       break;
       case 3:  //1001
-        digitalWrite(motor_pin_1, HIGH);
-        digitalWrite(motor_pin_2, LOW);
-        digitalWrite(motor_pin_3, LOW);
-        digitalWrite(motor_pin_4, HIGH);
+        gpio_set_level(motor_pin_1, HIGH);
+        gpio_set_level(motor_pin_2, LOW);
+        gpio_set_level(motor_pin_3, LOW);
+        gpio_set_level(motor_pin_4, HIGH);
       break;
     }
   }
@@ -283,74 +375,74 @@ void Stepper::stepMotor(int thisStep)
   if (this->pin_count == 5) {
     switch (thisStep) {
       case 0:  // 01101
-        digitalWrite(motor_pin_1, LOW);
-        digitalWrite(motor_pin_2, HIGH);
-        digitalWrite(motor_pin_3, HIGH);
-        digitalWrite(motor_pin_4, LOW);
-        digitalWrite(motor_pin_5, HIGH);
+        gpio_set_level(motor_pin_1, LOW);
+        gpio_set_level(motor_pin_2, HIGH);
+        gpio_set_level(motor_pin_3, HIGH);
+        gpio_set_level(motor_pin_4, LOW);
+        gpio_set_level(motor_pin_5, HIGH);
         break;
       case 1:  // 01001
-        digitalWrite(motor_pin_1, LOW);
-        digitalWrite(motor_pin_2, HIGH);
-        digitalWrite(motor_pin_3, LOW);
-        digitalWrite(motor_pin_4, LOW);
-        digitalWrite(motor_pin_5, HIGH);
+        gpio_set_level(motor_pin_1, LOW);
+        gpio_set_level(motor_pin_2, HIGH);
+        gpio_set_level(motor_pin_3, LOW);
+        gpio_set_level(motor_pin_4, LOW);
+        gpio_set_level(motor_pin_5, HIGH);
         break;
       case 2:  // 01011
-        digitalWrite(motor_pin_1, LOW);
-        digitalWrite(motor_pin_2, HIGH);
-        digitalWrite(motor_pin_3, LOW);
-        digitalWrite(motor_pin_4, HIGH);
-        digitalWrite(motor_pin_5, HIGH);
+        gpio_set_level(motor_pin_1, LOW);
+        gpio_set_level(motor_pin_2, HIGH);
+        gpio_set_level(motor_pin_3, LOW);
+        gpio_set_level(motor_pin_4, HIGH);
+        gpio_set_level(motor_pin_5, HIGH);
         break;
       case 3:  // 01010
-        digitalWrite(motor_pin_1, LOW);
-        digitalWrite(motor_pin_2, HIGH);
-        digitalWrite(motor_pin_3, LOW);
-        digitalWrite(motor_pin_4, HIGH);
-        digitalWrite(motor_pin_5, LOW);
+        gpio_set_level(motor_pin_1, LOW);
+        gpio_set_level(motor_pin_2, HIGH);
+        gpio_set_level(motor_pin_3, LOW);
+        gpio_set_level(motor_pin_4, HIGH);
+        gpio_set_level(motor_pin_5, LOW);
         break;
       case 4:  // 11010
-        digitalWrite(motor_pin_1, HIGH);
-        digitalWrite(motor_pin_2, HIGH);
-        digitalWrite(motor_pin_3, LOW);
-        digitalWrite(motor_pin_4, HIGH);
-        digitalWrite(motor_pin_5, LOW);
+        gpio_set_level(motor_pin_1, HIGH);
+        gpio_set_level(motor_pin_2, HIGH);
+        gpio_set_level(motor_pin_3, LOW);
+        gpio_set_level(motor_pin_4, HIGH);
+        gpio_set_level(motor_pin_5, LOW);
         break;
       case 5:  // 10010
-        digitalWrite(motor_pin_1, HIGH);
-        digitalWrite(motor_pin_2, LOW);
-        digitalWrite(motor_pin_3, LOW);
-        digitalWrite(motor_pin_4, HIGH);
-        digitalWrite(motor_pin_5, LOW);
+        gpio_set_level(motor_pin_1, HIGH);
+        gpio_set_level(motor_pin_2, LOW);
+        gpio_set_level(motor_pin_3, LOW);
+        gpio_set_level(motor_pin_4, HIGH);
+        gpio_set_level(motor_pin_5, LOW);
         break;
       case 6:  // 10110
-        digitalWrite(motor_pin_1, HIGH);
-        digitalWrite(motor_pin_2, LOW);
-        digitalWrite(motor_pin_3, HIGH);
-        digitalWrite(motor_pin_4, HIGH);
-        digitalWrite(motor_pin_5, LOW);
+        gpio_set_level(motor_pin_1, HIGH);
+        gpio_set_level(motor_pin_2, LOW);
+        gpio_set_level(motor_pin_3, HIGH);
+        gpio_set_level(motor_pin_4, HIGH);
+        gpio_set_level(motor_pin_5, LOW);
         break;
       case 7:  // 10100
-        digitalWrite(motor_pin_1, HIGH);
-        digitalWrite(motor_pin_2, LOW);
-        digitalWrite(motor_pin_3, HIGH);
-        digitalWrite(motor_pin_4, LOW);
-        digitalWrite(motor_pin_5, LOW);
+        gpio_set_level(motor_pin_1, HIGH);
+        gpio_set_level(motor_pin_2, LOW);
+        gpio_set_level(motor_pin_3, HIGH);
+        gpio_set_level(motor_pin_4, LOW);
+        gpio_set_level(motor_pin_5, LOW);
         break;
       case 8:  // 10101
-        digitalWrite(motor_pin_1, HIGH);
-        digitalWrite(motor_pin_2, LOW);
-        digitalWrite(motor_pin_3, HIGH);
-        digitalWrite(motor_pin_4, LOW);
-        digitalWrite(motor_pin_5, HIGH);
+        gpio_set_level(motor_pin_1, HIGH);
+        gpio_set_level(motor_pin_2, LOW);
+        gpio_set_level(motor_pin_3, HIGH);
+        gpio_set_level(motor_pin_4, LOW);
+        gpio_set_level(motor_pin_5, HIGH);
         break;
       case 9:  // 00101
-        digitalWrite(motor_pin_1, LOW);
-        digitalWrite(motor_pin_2, LOW);
-        digitalWrite(motor_pin_3, HIGH);
-        digitalWrite(motor_pin_4, LOW);
-        digitalWrite(motor_pin_5, HIGH);
+        gpio_set_level(motor_pin_1, LOW);
+        gpio_set_level(motor_pin_2, LOW);
+        gpio_set_level(motor_pin_3, HIGH);
+        gpio_set_level(motor_pin_4, LOW);
+        gpio_set_level(motor_pin_5, HIGH);
         break;
     }
   }
@@ -361,5 +453,5 @@ void Stepper::stepMotor(int thisStep)
 */
 int Stepper::version(void)
 {
-  return 5;
+  return 1;
 }
