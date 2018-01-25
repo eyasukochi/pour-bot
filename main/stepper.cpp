@@ -293,6 +293,8 @@ void Stepper::step(int steps_to_move)
 	while (steps_left > 0)
 	{
 		unsigned long now = micros();
+		//TODO don't actually wait, it would be closer to schedule a delay via vTaskDelay probably
+		// Definitely more efficient, probably slightly less accurate.
 		// move only if the appropriate delay has passed:
 		if (now - this->last_step_time >= this->step_delay)
 		{
@@ -454,6 +456,7 @@ void Stepper::stepMotor(int thisStep)
         break;
     }
   }
+  vTaskDelay(2);
 }
 
 /*

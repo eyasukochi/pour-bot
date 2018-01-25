@@ -24,12 +24,11 @@ extern "C" {
 const int DS_PIN = 18;
 
 void mainTask(void *pvParameters){
-	Stepper stepper(200, 16, 17, 18, 19);
-	stepper.setSpeed(60);
+	Stepper stepper(32, 16, 17, 18, 19);
 
 	while (1) {
 		printf("forward\n");
-		stepper.step(200);
+		stepper.step(32);
 		vTaskDelay(500);
 		printf("backward\n");
 		stepper.step(-200);
@@ -46,15 +45,15 @@ void mainTask(void *pvParameters){
 
 void app_main(void)
 {
-	Stepper stepper(200, 16, 17, 18, 19);
-	stepper.setSpeed(60);
+	Stepper stepper(32, 16, 17, 18, 19);
+	stepper.setSpeed(25);
 
 	while (1) {
 		printf("forward\n");
-		stepper.step(200);
+		stepper.step(32);
 		vTaskDelay(500);
 		printf("backward\n");
-		stepper.step(-200);
+		stepper.step(-32);
 		vTaskDelay(500);
 	}
 //	xTaskCreatePinnedToCore(&mainTask, "mainTask", 2048, NULL, 5, NULL, 0);
