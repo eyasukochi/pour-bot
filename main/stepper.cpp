@@ -76,6 +76,7 @@
  */
 
 //#include "Arduino.h"
+#include <esp_log.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -85,9 +86,13 @@
 #include "freertos/queue.h"
 #include "driver/gpio.h"
 #include "stepper.h"
+#include "sdkconfig.h"
 
 static uint32_t HIGH = 1;
 static uint32_t LOW = 0;
+
+static const char* LOG_TAG = "Stepper";
+
 
 gpio_num_t mapFromInt(int integerPin)
 {
@@ -267,6 +272,7 @@ long micros(){
 void Stepper::setSpeed(long whatSpeed)
 {
   this->step_delay = 60L * 1000L * 1000L / this->number_of_steps / whatSpeed;
+  ESP_LOGD(LOG_TAG, "Step delay now set to %ld", this->step_delay);
 }
 
 /*
@@ -275,47 +281,48 @@ void Stepper::setSpeed(long whatSpeed)
  */
 void Stepper::step(int steps_to_move)
 {
-  int steps_left = abs(steps_to_move);  // how many steps to take
+	ESP_LOGD(LOG_TAG, "Attempting to move %d steps", steps_to_move);
+	int steps_left = abs(steps_to_move);  // how many steps to take
 
-  // determine direction based on whether steps_to_mode is + or -:
-  if (steps_to_move > 0) { this->direction = 1; }
-  if (steps_to_move < 0) { this->direction = 0; }
+	// determine direction based on whether steps_to_mode is + or -:
+	if (steps_to_move > 0) { this->direction = 1; }
+	if (steps_to_move < 0) { this->direction = 0; }
 
 
-  // decrement the number of steps, moving one step each time:
-  while (steps_left > 0)
-  {
-    unsigned long now = micros();
-    // move only if the appropriate delay has passed:
-    if (now - this->last_step_time >= this->step_delay)
-    {
-      // get the timeStamp of when you stepped:
-      this->last_step_time = now;
-      // increment or decrement the step number,
-      // depending on direction:
-      if (this->direction == 1)
-      {
-        this->step_number++;
-        if (this->step_number == this->number_of_steps) {
-          this->step_number = 0;
-        }
-      }
-      else
-      {
-        if (this->step_number == 0) {
-          this->step_number = this->number_of_steps;
-        }
-        this->step_number--;
-      }
-      // decrement the steps left:
-      steps_left--;
-      // step the motor to step number 0, 1, ..., {3 or 10}
-      if (this->pin_count == 5)
-        stepMotor(this->step_number % 10);
-      else
-        stepMotor(this->step_number % 4);
-    }
-  }
+	// decrement the number of steps, moving one step each time:
+	while (steps_left > 0)
+	{
+		unsigned long now = micros();
+		// move only if the appropriate delay has passed:
+		if (now - this->last_step_time >= this->step_delay)
+		{
+		  // get the timeStamp of when you stepped:
+		  this->last_step_time = now;
+		  // increment or decrement the step number,
+		  // depending on direction:
+		  if (this->direction == 1)
+		  {
+			this->step_number++;
+			if (this->step_number == this->number_of_steps) {
+			  this->step_number = 0;
+			}
+		  }
+		  else
+		  {
+			if (this->step_number == 0) {
+			  this->step_number = this->number_of_steps;
+			}
+			this->step_number--;
+		  }
+		  // decrement the steps left:
+		  steps_left--;
+		  // step the motor to step number 0, 1, ..., {3 or 10}
+		  if (this->pin_count == 5)
+			stepMotor(this->step_number % 10);
+		  else
+			stepMotor(this->step_number % 4);
+		}
+	}
 }
 
 /*
@@ -323,6 +330,7 @@ void Stepper::step(int steps_to_move)
  */
 void Stepper::stepMotor(int thisStep)
 {
+	ESP_LOGD(LOG_TAG, "Executing step number %d", thisStep);
   if (this->pin_count == 2) {
     switch (thisStep) {
       case 0:  // 01
