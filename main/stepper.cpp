@@ -260,9 +260,7 @@ Stepper::Stepper(int number_of_steps, int motor_pin_1, int motor_pin_2,
  */
 long micros(){
 	clock_t elapsedClocks = clock();
-	//1 elapsed clocks
-	//1000 clocks per second. this would mean one clock every millisecond
-	long time = (elapsedClocks/CLOCKS_PER_SEC) * 1000000;
+	long time = ((float) elapsedClocks/ (float) CLOCKS_PER_SEC) * 1000000;
 	return time;
 }
 
@@ -293,8 +291,6 @@ void Stepper::step(int steps_to_move)
 	while (steps_left > 0)
 	{
 		unsigned long now = micros();
-		//TODO don't actually wait, it would be closer to schedule a delay via vTaskDelay probably
-		// Definitely more efficient, probably slightly less accurate.
 		// move only if the appropriate delay has passed:
 		if (now - this->last_step_time >= this->step_delay)
 		{
@@ -323,6 +319,8 @@ void Stepper::step(int steps_to_move)
 			stepMotor(this->step_number % 10);
 		  else
 			stepMotor(this->step_number % 4);
+		  // Feed the WatchDog
+		  vTaskDelay(1);
 		}
 	}
 }
@@ -332,7 +330,7 @@ void Stepper::step(int steps_to_move)
  */
 void Stepper::stepMotor(int thisStep)
 {
-	ESP_LOGD(LOG_TAG, "Executing step number %d", thisStep);
+//	ESP_LOGD(LOG_TAG, "Executing step number %d", thisStep);
   if (this->pin_count == 2) {
     switch (thisStep) {
       case 0:  // 01
@@ -456,7 +454,6 @@ void Stepper::stepMotor(int thisStep)
         break;
     }
   }
-  vTaskDelay(2);
 }
 
 /*

@@ -22,18 +22,19 @@ extern "C" {
 }
 
 const int DS_PIN = 18;
+const int STEPS = 513;
 
 void mainTask(void *pvParameters){
-	Stepper stepper(32, 16, 17, 18, 19);
-
-	while (1) {
-		printf("forward\n");
-		stepper.step(32);
-		vTaskDelay(500);
-		printf("backward\n");
-		stepper.step(-200);
-		vTaskDelay(500);
-	}
+//	Stepper stepper(32, 16, 17, 18, 19);
+//
+//	while (1) {
+//		printf("forward\n");
+//		stepper.step(32);
+//		vTaskDelay(500);
+//		printf("backward\n");
+//		stepper.step(-200);
+//		vTaskDelay(500);
+//	}
 //  ds18b20_init(DS_PIN);
 //
 //  while (1) {
@@ -45,15 +46,15 @@ void mainTask(void *pvParameters){
 
 void app_main(void)
 {
-	Stepper stepper(32, 16, 17, 18, 19);
-	stepper.setSpeed(25);
+	Stepper stepper(STEPS, 16, 17, 18, 19);
+	stepper.setSpeed(40);
 
 	while (1) {
 		printf("forward\n");
-		stepper.step(32);
+		stepper.step(STEPS);
 		vTaskDelay(500);
 		printf("backward\n");
-		stepper.step(-32);
+		stepper.step(-STEPS);
 		vTaskDelay(500);
 	}
 //	xTaskCreatePinnedToCore(&mainTask, "mainTask", 2048, NULL, 5, NULL, 0);
